@@ -1,8 +1,11 @@
 
+from typing import Optional
+
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from google_auth import authenticate_google
+
 
 def list_task_lists():
     """Lists the user's task lists."""
@@ -54,7 +57,7 @@ def list_tasks(task_list_id: str):
     except Exception as e:
         return f"An unexpected error occurred: {e}"
 
-def create_task(task_list_id: str, title: str, notes: str = None):
+def create_task(task_list_id: str, title: str, notes: Optional[str] = None):
     """Creates a new task."""
     creds = authenticate_google()
     if not creds:
@@ -76,7 +79,7 @@ def create_task(task_list_id: str, title: str, notes: str = None):
     except Exception as e:
         return f"An unexpected error occurred: {e}"
 
-def update_task(task_list_id: str, task_id: str, title: str, notes: str = None):
+def update_task(task_list_id: str, task_id: str, title: str, notes: Optional[str] = None):
     """Updates a task."""
     creds = authenticate_google()
     if not creds:

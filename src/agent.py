@@ -1,6 +1,6 @@
 
-import logging
 import datetime as dt
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -11,23 +11,37 @@ from livekit.agents import (
     JobProcess,
     MetricsCollectedEvent,
     RoomInputOptions,
+    RunContext,
     WorkerOptions,
     cli,
+    function_tool,
     metrics,
 )
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from livekit.agents import function_tool, RunContext
+
+from datetime_tool import get_current_datetime
+from fuzzy_search import is_nickname
 from google_calendar_tool import add_event, get_upcoming_events
-from google_mail_tool import send_email, list_unread_emails
+from google_mail_tool import list_unread_emails, send_email
 from google_tasks_tool import (
+    create_task,
+    delete_task,
     list_task_lists,
     list_tasks,
-    create_task,
     update_task,
-    delete_task,
 )
-from datetime_tool import get_current_datetime
+from sncf_tool_mcp_client import get_next_train_time
+
+contacts = [
+    {"id": "001", "nickname": "lal", "email": "aurelienysv@gmail.com", "full_name": "Aurelie NYS"},
+    {"id": "002", "nickname": "basile", "email": "basilevinchonnys@gmail.com", "full_name": "Basile VINCHON-NYS"},
+    {"id": "003", "nickname": "seb", "email": "svinchon@gmail.com", "full_name": "SebastienVINCHON"},
+    {"id": "004", "nickname": "gigi", "email": "guillaume.vinchon@outlook.com", "full_name": "Guillaume VINCHON"},
+
+]
+
+
 # from livekit.plugins import hedra
 
 # import uvicorn
@@ -120,7 +134,7 @@ Do not hesitate to use the appropriate tool to determine the curren date.
         Args:
             count: The number of upcoming events to retrieve (default is 2).
         """
-        logger.info(f"Listing next Google Calendar events")
+        logger.info("Listing next Google Calendar events")
         return get_upcoming_events(count)
 
 # GOOGLE MAIL ##################################################################
@@ -128,6 +142,9 @@ Do not hesitate to use the appropriate tool to determine the curren date.
     @function_tool
     async def send_google_mail(self, context: RunContext, to: str, subject: str, message: str):
         """Use this tool to send an email using Gmail.
+        Use get_email_for_nickname to resolve nicknames to email addresses
+        unless the nickname is unknown or your are provided with a proper
+        email adress
 
         Args:
             to: The recipient of the email.
@@ -163,7 +180,7 @@ Do not hesitate to use the appropriate tool to determine the curren date.
 
     @function_tool
     async def create_google_task(
-        self, context: RunContext, task_list_id: str, title: str, notes: str = None
+        self, context: RunContext, task_list_id: str, title: str, notes: str = ""
     ):
         """Use this tool to create a new task in a specific Google Task list."""
         logger.info(f"Creating task '{title}' in task list {task_list_id}")
@@ -171,19 +188,84 @@ Do not hesitate to use the appropriate tool to determine the curren date.
 
     @function_tool
     async def update_google_task(
-        self, context: RunContext, task_list_id: str, task_id: str, title: str, notes: str = None
+        self,
+        context: RunContext,
+        task_list_id: str,
+        task_id: str,
+        title: str,
+        notes: str = ""
     ):
         """Use this tool to update a task in a specific Google Task list."""
         logger.info(f"Updating task {task_id} in task list {task_list_id}")
         return update_task(task_list_id, task_id, title, notes)
 
     @function_tool
-    async def delete_google_task(self, context: RunContext, task_list_id: str, task_id: str):
+    async def delete_google_task(
+        self,
+        context: RunContext,
+        task_list_id: str,
+        task_id: str
+    ):
         """Use this tool to delete a task in a specific Google Task list."""
         logger.info(f"Deleting task {task_id} from task list {task_list_id}")
         return delete_task(task_list_id, task_id)
 
-#
+    @function_tool
+    async def get_contact_info_by_nickname(
+        self,
+        context: RunContext,
+        nickname: str
+    ):
+        """Use this tool if you are provided
+        with a nickname and need to find the corresponding contact information."""
+        logger.info("Getting email for nickname")
+        ret = "could not find email for that nickname"
+        for contact in contacts:
+            if is_nickname(contact["nickname"], nickname):
+                ret = contact
+                break
+        return ret
+
+    @function_tool
+    async def get_contact_info_by_id(
+        self,
+        context: RunContext,
+        contact_id: str
+    ):
+        """Use this tool if you are provided
+        with an id and need to find the corresponding contact information."""
+        logger.info("Getting email for nickname")
+        ret = "could not find email for that nickname"
+        for contact in contacts:
+            if is_nickname(contact["id"], contact_id):
+                ret = contact
+                break
+        return ret
+
+    @function_tool
+    async def get_next_train_time(
+        self,
+        context: RunContext,
+        origin: str,
+        destination: str
+    ):
+        """Use this tool to find the next train time between two stations.
+
+        Args:
+            origin: The origin station.
+            destination: The destination station.
+        """
+        logger.info(f"Getting next train time from {origin} to {destination}")
+        return await get_next_train_time(origin, destination)
+
+    @function_tool
+    async def list_nicknames(
+        self,
+        context: RunContext
+    ):
+        """Use this tool to list all known nicknames."""
+        logger.info("Getting nicknames")
+        return [contact["nickname"] for contact in contacts]
 
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
@@ -211,12 +293,18 @@ async def entrypoint(ctx: JobContext):
     session = AgentSession(
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
         # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt="assemblyai/universal-streaming:en",
-        # stt="cartesia/ink-whisper:fr",
-        # stt="deepgram/nova-3:fr",
+        # stt="assemblyai/universal-streaming",
+        # stt="cartesia/ink-whisper:en",
+
+        # stt="deepgram/nova-3:fr", # Works well, for french only
+        stt="deepgram/nova-3:multi", # Works well, for multiple languages
+
         # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
         # See all available models at https://docs.livekit.io/agents/models/llm/
         llm="openai/gpt-4.1-mini",
+
+
+        # PREFERRED_LANGUAGE=French works ok but with canadian accent
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         tts="cartesia/sonic-2:a167e0f3-df7e-4d52-a9c3-f949145efdab",
@@ -282,9 +370,9 @@ async def entrypoint(ctx: JobContext):
 
 if __name__ == "__main__":
 
-    import os
     # import threading
     import http.server
+    import os
     import socketserver
 
     # from livekit import agents

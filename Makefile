@@ -30,6 +30,10 @@ run-agent-dev:
 get-files:
 	uv run python src/agent.py download-files
 #
+################################################################################
+# GIT
+################################################################################
+#
 # switch to main branch
 git-switch-branch:
 	@echo "git switch <branch_name>"
@@ -58,6 +62,10 @@ git-branch-delete:
 # 	--tag my-jarvis-backend:latest \
 # 	.
 #
+################################################################################
+# GCP
+################################################################################
+#
 #### GCP One Step
 #
 docker_gcp_build_image_amd64:
@@ -83,3 +91,19 @@ docker_gcp_run_image:
 	--set-env-vars LIVEKIT_API_KEY="APIVqa2rYc4i7xF" \
 	--set-env-vars LIVEKIT_API_SECRET="MyVA5SZGYq2zpm7hQeXQfOXEOYcS1hPaGgCeljRQ1XtA" \
 	--set-env-vars LIVEKIT_URL="wss://nestor-fxss0huu.livekit.cloud"
+#
+################################################################################
+# LiveKit Cloud
+################################################################################
+#
+lk-auth:
+	lk cloud auth
+#
+lk-agent-create:
+	lk agent create
+#
+lk-agent-status:
+	lk agent status
+#
+lk-agent-delete:
+	lk agent delete --project nestor

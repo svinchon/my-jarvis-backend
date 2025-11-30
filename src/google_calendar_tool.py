@@ -1,7 +1,6 @@
 
 import datetime
 import datetime as dt
-import os.path
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -23,7 +22,6 @@ def add_event(
     Assumes start_time and end_time are in local TIMEZONE if tz-naive.
     Assumes calendar_id is "primary".
     Assumes timezone is TIMEZONE.
-    
     Args:
         summary: The summary or title of the event.
         description: The description of the event.
@@ -120,7 +118,7 @@ if __name__ == "__main__":
 
     event = add_event(
         summary="Réunion projet Bidon",
-        description="Point d’avancement sprint",
+        description="Point d'avancement sprint",
         start_time=start_dt,
         end_time=end_dt
     )

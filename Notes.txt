@@ -1,0 +1,17 @@
+25-11-28
+	make run-agent-console works fine
+		I can speak in French and it responds in English
+		I can send an email
+		I can schedule a meeting
+	make run-agent-dev + flutter app does not work well
+		he mobile app doesn't seem to process my voice well
+		text seems tp work better
+	Review of LiveKit console
+		https://cloud.livekit.io/projects/p_5324fm04p0j/overview
+
+
+25-11-30
+	make run-agent-dev works fine
+		could not find French voice
+	flutter app in debug mode works fine on device
+		full English or full French Canadian
